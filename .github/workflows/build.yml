@@ -24,8 +24,7 @@ jobs:
         run: |
           make
           mkdir build
-          cd ./.theos/obj #&& mv ANGLEGLKit ../../build
-          ls
+          cd ./.theos/obj && mv ANGLEGLKit.framework ../../build
       - name: Upload Frameworks
         uses: actions/upload-artifact@main
         with:
