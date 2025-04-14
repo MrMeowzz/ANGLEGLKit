@@ -1,3 +1,4 @@
+export THEOS=./theos
 ARCHS := arm64
 TARGET := iphone:clang:latest:11.0
 
