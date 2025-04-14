@@ -1,0 +1,32 @@
+name: Build Frameworks file
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: install include tools
+        run: |
+          brew install ldid
+      - name: clone theos repo
+        run: git clone --recursive https://github.com/theos/theos.git
+      - name: install sdks
+        run: |
+          cd ./theos/sdks
+          curl -fsSL https://github.com/theos/sdks/tarball/master | tar -xz --strip-components=1
+          exec bash
+      - name: build
+        run: |
+          make
+          mkdir build
+          cd ./.theos/obj && mv ANGLEGLKit ../../build
+      - name: Upload dylib
+        uses: actions/upload-artifact@main
+        with:
+          name: ANGLEGLFrame
+          path: build/
