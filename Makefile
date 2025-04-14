@@ -1,6 +1,10 @@
 export THEOS=./theos
-ARCHS := arm64
-TARGET := iphone:clang:latest:11.0
+ARCHS = arm64
+TARGET = iphone:clang:latest:11.0
+FINALPACKAGE = 1
+FOR_RELEASE = 1
+IGNORE_WARNING = 0
+MOBILE_THEOS = 1
 
 include $(THEOS)/makefiles/common.mk
 # TARGET_CODESIGN = fastPathSign
