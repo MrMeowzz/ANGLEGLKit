@@ -30,11 +30,17 @@ ANGLEGLKit_OBJCCFLAGS = \
 	-std=c++11 \
 	-fno-modules
 
+ANGLEGLKit_FRAMEWORKS = \
+	Foundation \
+	UIKit \
+	QuartzCore \
+	CoreGraphics
+
 ANGLEGLKit_LDFLAGS = \
 	-FFrameworks \
+	-framework libEGL \
+	-Wl,-reexport_framework,libGLESv2 \
 	-rpath @executable_path/Frameworks \
-	-Wl,-reexport_framework,libGLESv2
-
-ANGLEGLKit_FRAMEWORKS = libEGL
+	-rpath @loader_path/../
 
 include $(THEOS_MAKE_PATH)/framework.mk
