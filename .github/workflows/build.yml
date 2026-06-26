@@ -1,32 +1,56 @@
-name: Build Frameworks file
+name: Build ANGLEGLKit
 
 on:
+  workflow_dispatch:
   push:
-  pull_request:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
-      - uses: actions/checkout@v3
-      - name: install include tools
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        shell: bash
         run: |
           brew install ldid
-      - name: clone theos repo
-        run: git clone --recursive https://github.com/theos/theos.git
-      - name: install sdks
+
+      - name: Clone Theos
+        shell: bash
         run: |
-          cd ./theos/sdks
-          curl -fsSL https://github.com/theos/sdks/tarball/master | tar -xz --strip-components=1
-          exec bash
-      - name: build
+          rm -rf theos
+          git clone --recursive https://github.com/theos/theos.git theos
+
+      - name: Install Theos SDKs
+        shell: bash
         run: |
+          mkdir -p theos/sdks
+          curl -fsSL https://github.com/theos/sdks/tarball/master | tar -xz -C theos/sdks --strip-components=1
+          ls theos/sdks
+
+      - name: Build ANGLEGLKit
+        shell: bash
+        run: |
+          make clean || true
           make
-          mkdir build
-          cd ./.theos/obj && mv ANGLEGLKit.framework ../../build
-      - name: Upload Frameworks
-        uses: actions/upload-artifact@main
+
+      - name: Package framework artifact
+        shell: bash
+        run: |
+          rm -rf build
+          mkdir -p build
+
+          cp -R .theos/obj/ANGLEGLKit.framework build/ANGLEGLKit.framework
+
+          codesign --force --sign - --timestamp=none build/ANGLEGLKit.framework/ANGLEGLKit || true
+
+          echo "Built files:"
+          find build -maxdepth 4 -type f -print
+
+      - name: Upload ANGLEGLKit.framework
+        uses: actions/upload-artifact@v4
         with:
-          name: ANGLEGLFrame
-          path: build/
+          name: ANGLEGLKit-framework
+          path: build/ANGLEGLKit.framework
