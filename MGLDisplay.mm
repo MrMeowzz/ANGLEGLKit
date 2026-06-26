@@ -11,6 +11,26 @@
 #include <EGL/eglext_angle.h>
 #include <EGL/eglplatform.h>
 
+#ifndef EGL_PLATFORM_ANGLE_ANGLE
+#define EGL_PLATFORM_ANGLE_ANGLE 0x3202
+#endif
+
+#ifndef EGL_PLATFORM_ANGLE_TYPE_ANGLE
+#define EGL_PLATFORM_ANGLE_TYPE_ANGLE 0x3203
+#endif
+
+#ifndef EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE
+#define EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE 0x3489
+#endif
+
+#ifndef EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE
+#define EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE 0x3209
+#endif
+
+#ifndef EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE
+#define EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE 0x320A
+#endif
+
 namespace
 {
 void Throw(NSString *msg)
@@ -28,25 +48,21 @@ static EGLDisplay CreateMetalANGLEDisplay()
 {
     EGLDisplay display = EGL_NO_DISPLAY;
 
-    const EGLint metalAttribs[] = {
-        EGL_PLATFORM_ANGLE_TYPE_ANGLE,
-        EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
-
-        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE,
-        EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
-
-        EGL_NONE,
-    };
-
     PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT =
         (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+
+    const EGLint extAttribs[] = {
+        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
+        EGL_NONE
+    };
 
     if (getPlatformDisplayEXT)
     {
         display = getPlatformDisplayEXT(
             EGL_PLATFORM_ANGLE_ANGLE,
-            EGL_DEFAULT_DISPLAY,
-            metalAttribs
+            (void *)0,
+            extAttribs
         );
 
         if (display != EGL_NO_DISPLAY)
@@ -63,10 +79,16 @@ static EGLDisplay CreateMetalANGLEDisplay()
     }
 
 #if EGL_VERSION_1_5
+    const EGLAttrib attribs15[] = {
+        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
+        EGL_NONE
+    };
+
     display = eglGetPlatformDisplay(
         EGL_PLATFORM_ANGLE_ANGLE,
-        EGL_DEFAULT_DISPLAY,
-        (const EGLAttrib *)metalAttribs
+        (void *)0,
+        attribs15
     );
 
     if (display != EGL_NO_DISPLAY)
@@ -91,16 +113,17 @@ static EGLDisplay CreateMetalANGLEDisplay()
 }
 }
 
-// EGLDisplayHolder
 @interface EGLDisplayHolder : NSObject
-@property(nonatomic) EGLDisplay eglDisplay;
+@property(nonatomic, assign) EGLDisplay eglDisplay;
 @end
 
 @implementation EGLDisplayHolder
 
-- (id)init
+- (instancetype)init
 {
-    if (self = [super init])
+    self = [super init];
+
+    if (self)
     {
         _eglDisplay = CreateMetalANGLEDisplay();
 
@@ -135,14 +158,10 @@ static EGLDisplay CreateMetalANGLEDisplay()
 
 @end
 
-static EGLDisplayHolder *gGlobalDisplayHolder;
-static MGLDisplay *gDefaultDisplay;
+static EGLDisplayHolder *gGlobalDisplayHolder = nil;
+static MGLDisplay *gDefaultDisplay = nil;
 
-// MGLDisplay implementation
-@interface MGLDisplay () {
-    EGLDisplayHolder *_eglDisplayHolder;
-}
-
+@interface MGLDisplay ()
 @end
 
 @implementation MGLDisplay
@@ -160,9 +179,11 @@ static MGLDisplay *gDefaultDisplay;
     }
 }
 
-- (id)init
+- (instancetype)init
 {
-    if (self = [super init])
+    self = [super init];
+
+    if (self)
     {
         @synchronized([MGLDisplay class])
         {
@@ -171,8 +192,7 @@ static MGLDisplay *gDefaultDisplay;
                 gGlobalDisplayHolder = [[EGLDisplayHolder alloc] init];
             }
 
-            _eglDisplayHolder = gGlobalDisplayHolder;
-            _eglDisplay = _eglDisplayHolder.eglDisplay;
+            _eglDisplay = gGlobalDisplayHolder.eglDisplay;
         }
 
         if (_eglDisplay == EGL_NO_DISPLAY)
