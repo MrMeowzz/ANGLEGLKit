@@ -6,11 +6,88 @@
 
 #import "MGLDisplay.h"
 
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <EGL/eglext_angle.h>
+#include <EGL/eglplatform.h>
+
 namespace
 {
 void Throw(NSString *msg)
 {
     [NSException raise:@"MGLSurfaceException" format:@"%@", msg];
+}
+
+static void LogEGLError(NSString *prefix)
+{
+    EGLint error = eglGetError();
+    NSLog(@"[ANGLEGLKit] %@ EGL error: 0x%04x", prefix, error);
+}
+
+static EGLDisplay CreateMetalANGLEDisplay()
+{
+    EGLDisplay display = EGL_NO_DISPLAY;
+
+    const EGLint metalAttribs[] = {
+        EGL_PLATFORM_ANGLE_TYPE_ANGLE,
+        EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+
+        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE,
+        EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
+
+        EGL_NONE,
+    };
+
+    PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT =
+        (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
+
+    if (getPlatformDisplayEXT)
+    {
+        display = getPlatformDisplayEXT(
+            EGL_PLATFORM_ANGLE_ANGLE,
+            EGL_DEFAULT_DISPLAY,
+            metalAttribs
+        );
+
+        if (display != EGL_NO_DISPLAY)
+        {
+            NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplayEXT + MetalANGLE.");
+            return display;
+        }
+
+        LogEGLError(@"eglGetPlatformDisplayEXT failed");
+    }
+    else
+    {
+        NSLog(@"[ANGLEGLKit] eglGetPlatformDisplayEXT is missing.");
+    }
+
+#if EGL_VERSION_1_5
+    display = eglGetPlatformDisplay(
+        EGL_PLATFORM_ANGLE_ANGLE,
+        EGL_DEFAULT_DISPLAY,
+        (const EGLAttrib *)metalAttribs
+    );
+
+    if (display != EGL_NO_DISPLAY)
+    {
+        NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplay + MetalANGLE.");
+        return display;
+    }
+
+    LogEGLError(@"eglGetPlatformDisplay failed");
+#endif
+
+    display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+
+    if (display != EGL_NO_DISPLAY)
+    {
+        NSLog(@"[ANGLEGLKit] Created EGL display using fallback eglGetDisplay.");
+        return display;
+    }
+
+    LogEGLError(@"eglGetDisplay failed");
+    return EGL_NO_DISPLAY;
 }
 }
 
@@ -25,16 +102,23 @@ void Throw(NSString *msg)
 {
     if (self = [super init])
     {
-        // Init display
-        _eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        _eglDisplay = CreateMetalANGLEDisplay();
+
         if (_eglDisplay == EGL_NO_DISPLAY)
         {
-            Throw(@"Failed To call eglGetPlatformDisplay()");
+            Throw(@"Failed to create EGL display");
         }
-        if (!eglInitialize(_eglDisplay, NULL, NULL))
+
+        EGLint major = 0;
+        EGLint minor = 0;
+
+        if (!eglInitialize(_eglDisplay, &major, &minor))
         {
-            Throw(@"Failed To call eglInitialize()");
+            LogEGLError(@"eglInitialize failed");
+            Throw(@"Failed to call eglInitialize()");
         }
+
+        NSLog(@"[ANGLEGLKit] EGL initialized successfully: %d.%d", major, minor);
     }
 
     return self;
@@ -65,23 +149,36 @@ static MGLDisplay *gDefaultDisplay;
 
 + (MGLDisplay *)defaultDisplay
 {
-    if (!gDefaultDisplay)
+    @synchronized(self)
     {
-        gDefaultDisplay = [[MGLDisplay alloc] init];
+        if (!gDefaultDisplay)
+        {
+            gDefaultDisplay = [[MGLDisplay alloc] init];
+        }
+
+        return gDefaultDisplay;
     }
-    return gDefaultDisplay;
 }
 
 - (id)init
 {
     if (self = [super init])
     {
-        if (!gGlobalDisplayHolder)
+        @synchronized([MGLDisplay class])
         {
-            gGlobalDisplayHolder = [[EGLDisplayHolder alloc] init];
+            if (!gGlobalDisplayHolder)
+            {
+                gGlobalDisplayHolder = [[EGLDisplayHolder alloc] init];
+            }
+
+            _eglDisplayHolder = gGlobalDisplayHolder;
+            _eglDisplay = _eglDisplayHolder.eglDisplay;
         }
-        _eglDisplayHolder = gGlobalDisplayHolder;
-        _eglDisplay       = _eglDisplayHolder.eglDisplay;
+
+        if (_eglDisplay == EGL_NO_DISPLAY)
+        {
+            Throw(@"MGLDisplay received EGL_NO_DISPLAY");
+        }
     }
 
     return self;
