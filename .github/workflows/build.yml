@@ -34,7 +34,10 @@ jobs:
         shell: bash
         run: |
           make clean || true
-          make
+          make \
+            ADDITIONAL_CFLAGS="-fno-modules" \
+            ADDITIONAL_CCFLAGS="-fno-modules" \
+            ADDITIONAL_OBJCCFLAGS="-fno-modules"
 
       - name: Package framework artifact
         shell: bash
@@ -42,7 +45,17 @@ jobs:
           rm -rf build
           mkdir -p build
 
-          cp -R .theos/obj/ANGLEGLKit.framework build/ANGLEGLKit.framework
+          FRAMEWORK_PATH="$(find .theos -type d -name 'ANGLEGLKit.framework' | head -1)"
+
+          if [ -z "$FRAMEWORK_PATH" ]; then
+            echo "Could not find ANGLEGLKit.framework"
+            find .theos -maxdepth 8 -print
+            exit 1
+          fi
+
+          echo "Found framework at $FRAMEWORK_PATH"
+
+          cp -R "$FRAMEWORK_PATH" build/ANGLEGLKit.framework
 
           codesign --force --sign - --timestamp=none build/ANGLEGLKit.framework/ANGLEGLKit || true
 
