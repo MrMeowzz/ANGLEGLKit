@@ -1,4 +1,4 @@
-export THEOS := ./theos
+export THEOS=./theos
 
 ARCHS = arm64
 TARGET = iphone:clang:latest:11.0
@@ -11,13 +11,7 @@ include $(THEOS)/makefiles/common.mk
 
 FRAMEWORK_NAME = ANGLEGLKit
 
-ANGLEGLKit_FILES = \
-	MGLContext.mm \
-	MGLDisplay.mm \
-	MGLKView.mm \
-	MGLKViewController.mm \
-	MGLLayer.mm \
-	MGLKit.m
+ANGLEGLKit_FILES = MGLContext.mm MGLDisplay.mm MGLKView.mm MGLKViewController.mm MGLLayer.mm MGLKit.m
 
 ANGLEGLKit_PUBLIC_HEADERS = include/
 
