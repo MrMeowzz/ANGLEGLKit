@@ -11,6 +11,8 @@
 #include <EGL/eglext_angle.h>
 #include <EGL/eglplatform.h>
 #include <dlfcn.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifndef EGL_PLATFORM_ANGLE_ANGLE
 #define EGL_PLATFORM_ANGLE_ANGLE 0x3202
@@ -127,6 +129,12 @@ static void *ResolveEGLProc(const char *name)
     return proc;
 }
 
+static bool ShouldUsePlatformDisplay()
+{
+    const char *value = getenv("ANGLEGLKIT_USE_PLATFORM_DISPLAY");
+    return value && strcmp(value, "1") == 0;
+}
+
 static void LogEGLError(NSString *prefix)
 {
     EnsureEGLLibrariesLoaded();
@@ -147,67 +155,74 @@ static EGLDisplay CreateMetalANGLEDisplay()
 
     EGLDisplay display = EGL_NO_DISPLAY;
 
-    PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT =
-        (PFNEGLGETPLATFORMDISPLAYEXTPROC)ResolveEGLProc("eglGetPlatformDisplayEXT");
-
-    const EGLint extAttribs[] = {
-        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
-        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
-        EGL_NONE
-    };
-
-    if (getPlatformDisplayEXT)
+    if (ShouldUsePlatformDisplay())
     {
-        display = getPlatformDisplayEXT(
-            EGL_PLATFORM_ANGLE_ANGLE,
-            (void *)0,
-            extAttribs
-        );
+        PFNEGLGETPLATFORMDISPLAYEXTPROC getPlatformDisplayEXT =
+            (PFNEGLGETPLATFORMDISPLAYEXTPROC)ResolveEGLProc("eglGetPlatformDisplayEXT");
 
-        if (display != EGL_NO_DISPLAY)
+        const EGLint extAttribs[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+            EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
+            EGL_NONE
+        };
+
+        if (getPlatformDisplayEXT)
         {
-            NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplayEXT + MetalANGLE.");
-            return display;
-        }
+            display = getPlatformDisplayEXT(
+                EGL_PLATFORM_ANGLE_ANGLE,
+                (void *)0,
+                extAttribs
+            );
 
-        LogEGLError(@"eglGetPlatformDisplayEXT failed");
-    }
-    else
-    {
-        NSLog(@"[ANGLEGLKit] eglGetPlatformDisplayEXT is missing.");
-    }
+            if (display != EGL_NO_DISPLAY)
+            {
+                NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplayEXT + MetalANGLE.");
+                return display;
+            }
+
+            LogEGLError(@"eglGetPlatformDisplayEXT failed");
+        }
+        else
+        {
+            NSLog(@"[ANGLEGLKit] eglGetPlatformDisplayEXT is missing.");
+        }
 
 #if EGL_VERSION_1_5
-    const EGLAttrib attribs15[] = {
-        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
-        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
-        EGL_NONE
-    };
+        const EGLAttrib attribs15[] = {
+            EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+            EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_HARDWARE_ANGLE,
+            EGL_NONE
+        };
 
-    PFNEGLGETPLATFORMDISPLAYPROC getPlatformDisplay =
-        (PFNEGLGETPLATFORMDISPLAYPROC)ResolveEGLProc("eglGetPlatformDisplay");
+        PFNEGLGETPLATFORMDISPLAYPROC getPlatformDisplay =
+            (PFNEGLGETPLATFORMDISPLAYPROC)ResolveEGLProc("eglGetPlatformDisplay");
 
-    if (getPlatformDisplay)
-    {
-        display = getPlatformDisplay(
-            EGL_PLATFORM_ANGLE_ANGLE,
-            (void *)0,
-            attribs15
-        );
-
-        if (display != EGL_NO_DISPLAY)
+        if (getPlatformDisplay)
         {
-            NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplay + MetalANGLE.");
-            return display;
-        }
+            display = getPlatformDisplay(
+                EGL_PLATFORM_ANGLE_ANGLE,
+                (void *)0,
+                attribs15
+            );
 
-        LogEGLError(@"eglGetPlatformDisplay failed");
+            if (display != EGL_NO_DISPLAY)
+            {
+                NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplay + MetalANGLE.");
+                return display;
+            }
+
+            LogEGLError(@"eglGetPlatformDisplay failed");
+        }
+        else
+        {
+            NSLog(@"[ANGLEGLKit] eglGetPlatformDisplay is missing.");
+        }
+#endif
     }
     else
     {
-        NSLog(@"[ANGLEGLKit] eglGetPlatformDisplay is missing.");
+        NSLog(@"[ANGLEGLKit] Skipping platform display path; set ANGLEGLKIT_USE_PLATFORM_DISPLAY=1 to enable it.");
     }
-#endif
 
     if (!gGetDisplay)
     {
