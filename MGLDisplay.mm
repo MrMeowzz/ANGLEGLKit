@@ -137,16 +137,7 @@ static bool ShouldUsePlatformDisplay()
 
 static void LogEGLError(NSString *prefix)
 {
-    EnsureEGLLibrariesLoaded();
-    if (gGetError)
-    {
-        EGLint error = gGetError();
-        NSLog(@"[ANGLEGLKit] %@ EGL error: 0x%04x", prefix, error);
-    }
-    else
-    {
-        NSLog(@"[ANGLEGLKit] %@ EGL error unavailable because eglGetError is missing.", prefix);
-    }
+    NSLog(@"[ANGLEGLKit] %@ EGL error unavailable because eglGetError is unsafe in this environment.", prefix);
 }
 
 static EGLDisplay CreateMetalANGLEDisplay()
@@ -245,6 +236,8 @@ static EGLDisplay CreateMetalANGLEDisplay()
 
 static EGLDisplay CreateInitializedANGLEDisplay()
 {
+    NSLog(@"[ANGLEGLKit] Creating initialized ANGLE display.");
+
     EGLDisplay eglDisplay = CreateMetalANGLEDisplay();
 
     if (eglDisplay == EGL_NO_DISPLAY)
@@ -259,6 +252,8 @@ static EGLDisplay CreateInitializedANGLEDisplay()
     {
         Throw(@"Failed to resolve eglInitialize()");
     }
+
+    NSLog(@"[ANGLEGLKit] Calling eglInitialize with display %p.", eglDisplay);
 
     if (!gInitialize(eglDisplay, &major, &minor))
     {
