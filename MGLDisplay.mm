@@ -243,62 +243,53 @@ static EGLDisplay CreateMetalANGLEDisplay()
 }
 }
 
-@interface EGLDisplayHolder : NSObject
-@property(nonatomic, assign) EGLDisplay eglDisplay;
-@end
-
-@implementation EGLDisplayHolder
-
-- (instancetype)init
+static EGLDisplay CreateInitializedANGLEDisplay()
 {
-    self = [super init];
+    EGLDisplay eglDisplay = CreateMetalANGLEDisplay();
 
-    if (self)
+    if (eglDisplay == EGL_NO_DISPLAY)
     {
-        _eglDisplay = CreateMetalANGLEDisplay();
-
-        if (_eglDisplay == EGL_NO_DISPLAY)
-        {
-            Throw(@"Failed to create EGL display");
-        }
-
-        EGLint major = 0;
-        EGLint minor = 0;
-
-        if (!gInitialize)
-        {
-            Throw(@"Failed to resolve eglInitialize()");
-        }
-
-        if (!gInitialize(_eglDisplay, &major, &minor))
-        {
-            LogEGLError(@"eglInitialize failed");
-            Throw(@"Failed to call eglInitialize()");
-        }
-
-        NSLog(@"[ANGLEGLKit] EGL initialized successfully: %d.%d", major, minor);
+        Throw(@"Failed to create EGL display");
     }
 
-    return self;
+    EGLint major = 0;
+    EGLint minor = 0;
+
+    if (!gInitialize)
+    {
+        Throw(@"Failed to resolve eglInitialize()");
+    }
+
+    if (!gInitialize(eglDisplay, &major, &minor))
+    {
+        LogEGLError(@"eglInitialize failed");
+        Throw(@"Failed to call eglInitialize()");
+    }
+
+    NSLog(@"[ANGLEGLKit] EGL initialized successfully: %d.%d", major, minor);
+    return eglDisplay;
 }
 
-- (void)dealloc
+static void TerminateANGLEDisplay(EGLDisplay eglDisplay)
 {
-    if (_eglDisplay != EGL_NO_DISPLAY)
+    if (eglDisplay != EGL_NO_DISPLAY)
     {
         EnsureEGLLibrariesLoaded();
         if (gTerminate)
         {
-            gTerminate(_eglDisplay);
+            gTerminate(eglDisplay);
         }
-        _eglDisplay = EGL_NO_DISPLAY;
     }
 }
 
-@end
-
-static EGLDisplayHolder *gGlobalDisplayHolder = nil;
+static EGLDisplay gGlobalEGLDisplay = EGL_NO_DISPLAY;
 static MGLDisplay *gDefaultDisplay = nil;
+
+static void TerminateGlobalANGLEDisplayAtExit()
+{
+    TerminateANGLEDisplay(gGlobalEGLDisplay);
+    gGlobalEGLDisplay = EGL_NO_DISPLAY;
+}
 
 @interface MGLDisplay ()
 @end
@@ -326,12 +317,13 @@ static MGLDisplay *gDefaultDisplay = nil;
     {
         @synchronized([MGLDisplay class])
         {
-            if (!gGlobalDisplayHolder)
+            if (gGlobalEGLDisplay == EGL_NO_DISPLAY)
             {
-                gGlobalDisplayHolder = [[EGLDisplayHolder alloc] init];
+                gGlobalEGLDisplay = CreateInitializedANGLEDisplay();
+                atexit(TerminateGlobalANGLEDisplayAtExit);
             }
 
-            _eglDisplay = gGlobalDisplayHolder.eglDisplay;
+            _eglDisplay = gGlobalEGLDisplay;
         }
 
         if (_eglDisplay == EGL_NO_DISPLAY)
