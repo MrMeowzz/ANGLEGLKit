@@ -85,19 +85,29 @@ static EGLDisplay CreateMetalANGLEDisplay()
         EGL_NONE
     };
 
-    display = eglGetPlatformDisplay(
-        EGL_PLATFORM_ANGLE_ANGLE,
-        (void *)0,
-        attribs15
-    );
+    PFNEGLGETPLATFORMDISPLAYPROC getPlatformDisplay =
+        (PFNEGLGETPLATFORMDISPLAYPROC)eglGetProcAddress("eglGetPlatformDisplay");
 
-    if (display != EGL_NO_DISPLAY)
+    if (getPlatformDisplay)
     {
-        NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplay + MetalANGLE.");
-        return display;
-    }
+        display = getPlatformDisplay(
+            EGL_PLATFORM_ANGLE_ANGLE,
+            (void *)0,
+            attribs15
+        );
 
-    LogEGLError(@"eglGetPlatformDisplay failed");
+        if (display != EGL_NO_DISPLAY)
+        {
+            NSLog(@"[ANGLEGLKit] Created EGL display using eglGetPlatformDisplay + MetalANGLE.");
+            return display;
+        }
+
+        LogEGLError(@"eglGetPlatformDisplay failed");
+    }
+    else
+    {
+        NSLog(@"[ANGLEGLKit] eglGetPlatformDisplay is missing.");
+    }
 #endif
 
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
