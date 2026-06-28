@@ -24,6 +24,7 @@ ANGLEGLKit_PUBLIC_HEADERS = include/
 ANGLEGLKit_CFLAGS = \
 	-fobjc-arc \
 	-fno-modules \
+	-fno-objc-msgsend-selector-stubs \
 	-Iinclude \
 	-IFrameworks/libEGL.framework/Headers \
 	-IFrameworks/libGLESv2.framework/Headers \
@@ -40,6 +41,7 @@ ANGLEGLKit_CCFLAGS = \
 ANGLEGLKit_OBJCCFLAGS = \
 	-std=c++11 \
 	-fno-modules \
+	-fno-objc-msgsend-selector-stubs \
 	-Iinclude \
 	-IFrameworks/libEGL.framework/Headers \
 	-IFrameworks/libGLESv2.framework/Headers
